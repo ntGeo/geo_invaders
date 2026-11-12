@@ -1,0 +1,6 @@
+{
+  "name": "Invasores",
+  "description": "Juego arcade clásico estilo Space Invaders para navegador en PC y dispositivos móviles con controles táctiles intuitivos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

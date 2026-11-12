@@ -1,11 +1,25 @@
-<div align="center">
+# Invasores — Arcade Espacial
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Juego arcade clásico estilo Space Invaders pensado para navegador en PC y dispositivos móviles con controles táctiles intuitivos, tabla local de los mejores 10 puntajes y audio sintetizado con Web Audio API.
 
-  <h1>Built with AI Studio</h2>
+## Desarrollo local
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+```bash
+npm install
+npm run dev
+```
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+Para generar la compilación de producción:
 
-</div>
+```bash
+npm run build
+```
+
+## Publicar en GitHub Pages
+
+El repositorio incluye el flujo automático de GitHub Actions en `.github/workflows/deploy.yml`:
+
+1. Sube el proyecto a un repositorio en GitHub en la rama `main` (o ajusta la rama en `.github/workflows/deploy.yml`).
+2. En tu repositorio de GitHub, ve a **Settings → Pages**.
+3. En **Build and deployment → Source**, selecciona **GitHub Actions**.
+4. En cada `push` a `main` (o al ejecutar el flujo manualmente desde la pestaña **Actions**), el sitio se compilará con la ruta base correcta y se publicará automáticamente en GitHub Pages.
