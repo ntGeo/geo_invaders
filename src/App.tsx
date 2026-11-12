@@ -5,7 +5,11 @@ import { TitleOverlay } from './components/TitleOverlay';
 import { TouchControls } from './components/TouchControls';
 import { arcadeAudio } from './game/audio';
 import { SpaceInvadersEngine } from './game/engine';
-import { addLeaderboardEntry, loadLeaderboard } from './game/leaderboard';
+import {
+  loadCachedLeaderboard,
+  saveLeaderboardScore,
+  subscribeLeaderboard,
+} from './game/leaderboard';
 import {
   type HudSnapshot,
   type LeaderboardEntry,
@@ -43,7 +47,7 @@ export default function App() {
 
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
-    loadLeaderboard()
+    loadCachedLeaderboard()
   );
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
@@ -74,6 +78,25 @@ export default function App() {
     return () => {
       engine.destroy();
       engineRef.current = null;
+    };
+  }, []);
+
+  // Subscribe to global Firestore Top 10 leaderboard
+  useEffect(() => {
+    const unsubscribe = subscribeLeaderboard(
+      (entries) => {
+        setLeaderboard(entries);
+        if (entries.length > 0) {
+          engineRef.current?.syncHighScore(entries[0].score);
+        }
+      },
+      (err) => {
+        console.warn('No se pudo sincronizar el ranking global:', err);
+      }
+    );
+
+    return () => {
+      unsubscribe();
     };
   }, []);
 
@@ -231,10 +254,14 @@ export default function App() {
     engineRef.current?.startNewGame();
   };
 
-  const handleSaveScore = (alias: string) => {
-    const { entries, newEntry } = addLeaderboardEntry(alias, hud.score, hud.wave);
-    setLeaderboard(entries);
+  const handleSaveScore = async (alias: string) => {
+    const newEntry = await saveLeaderboardScore(alias, hud.score, hud.wave);
     setSavedEntryId(newEntry.id);
+    setLeaderboard((prev) =>
+      [...prev, newEntry]
+        .sort((a, b) => b.score - a.score || b.createdAt - a.createdAt)
+        .slice(0, 10)
+    );
   };
 
   const handlePause = () => {

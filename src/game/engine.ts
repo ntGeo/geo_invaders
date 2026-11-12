@@ -243,6 +243,14 @@ export class SpaceInvadersEngine {
     }
   }
 
+  public syncHighScore(globalHighScore: number): void {
+    if (Number.isFinite(globalHighScore) && globalHighScore > this.highScore) {
+      this.highScore = globalHighScore;
+      this.saveHighScore(this.highScore);
+      this.emitHud(true);
+    }
+  }
+
   public startNewGame(): void {
     arcadeAudio.unlock();
     this.score = 0;

@@ -13,7 +13,7 @@ interface ModalOverlayProps {
   autoFire: boolean;
   leaderboard: LeaderboardEntry[];
   savedEntryId: string | null;
-  onSaveScore: (alias: string) => void;
+  onSaveScore: (alias: string) => Promise<void>;
   onToggleAutoFire: () => void;
   onResume: () => void;
   onRestart: () => void;
@@ -33,11 +33,13 @@ export function ModalOverlay({
 }: ModalOverlayProps) {
   const [alias, setAlias] = useState(() => loadLastAlias());
   const [aliasError, setAliasError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (hud.gameState === 'GAME_OVER') {
       setAlias(loadLastAlias());
       setAliasError('');
+      setIsSaving(false);
     }
   }, [hud.gameState]);
 
@@ -110,14 +112,27 @@ export function ModalOverlay({
     }
   };
 
-  const handleSubmitAlias = (e: React.FormEvent) => {
+  const handleSubmitAlias = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!isValidAlias(alias)) {
-      setAliasError('El apodo debe tener entre 3 y 5 caracteres.');
+      setAliasError('Usa de 3 a 5 caracteres (A-Z, 0-9, - o _).');
       return;
     }
     setAliasError('');
-    onSaveScore(alias);
+    setIsSaving(true);
+    try {
+      await onSaveScore(alias);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('Quota exceeded')) {
+        setAliasError('Se alcanzó el límite diario de la base de datos.');
+      } else {
+        setAliasError('No se pudo guardar en línea. Intenta nuevamente.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -128,9 +143,9 @@ export function ModalOverlay({
         </h2>
         <p className="text-xs text-slate-400 mb-4">
           {hud.isNewRecord
-            ? 'Nuevo récord personal alcanzado'
+            ? 'Nuevo récord alcanzado'
             : canEnterTop10
-              ? 'Tu puntuación entra en los 10 mejores'
+              ? 'Tu puntuación entra en los 10 mejores globales'
               : 'La flota invasora rompió la defensa'}
         </p>
 
@@ -184,24 +199,25 @@ export function ModalOverlay({
                 onChange={handleAliasChange}
                 minLength={3}
                 maxLength={5}
+                disabled={isSaving}
                 autoComplete="nickname"
                 autoCapitalize="characters"
                 placeholder="EJ. NEO"
-                className="flex-1 min-w-0 min-h-[44px] px-3 rounded-lg bg-[#0B1020] border border-white/15 focus:border-cyan-400 focus:outline-none text-white font-display font-bold text-base tracking-widest uppercase placeholder:text-slate-600"
+                className="flex-1 min-w-0 min-h-[44px] px-3 rounded-lg bg-[#0B1020] border border-white/15 focus:border-cyan-400 focus:outline-none text-white font-display font-bold text-base tracking-widest uppercase placeholder:text-slate-600 disabled:opacity-60"
               />
               <button
                 type="submit"
-                disabled={alias.length < 3}
+                disabled={alias.length < 3 || isSaving}
                 className="min-h-[44px] px-4 rounded-lg bg-cyan-400 hover:bg-cyan-300 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-display font-bold text-sm whitespace-nowrap shrink-0 transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
-                Guardar
+                {isSaving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
             {aliasError ? (
               <p className="mt-1.5 text-[11px] text-rose-400">{aliasError}</p>
             ) : (
               <p className="mt-1.5 text-[11px] text-slate-400 font-mono-num">
-                {alias.length}/5 caracteres
+                {alias.length}/5 caracteres · A-Z, 0-9, - o _
               </p>
             )}
           </form>

@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "ScoreEntry": {
+      "title": "ScoreEntry",
+      "description": "An arcade leaderboard score entry with player alias, numeric score, wave reached, and creation timestamp.",
+      "type": "object",
+      "properties": {
+        "alias": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 5,
+          "pattern": "^[A-Z0-9_\\-]+$",
+          "description": "Player arcade alias (3 to 5 characters)."
+        },
+        "score": {
+          "type": "integer",
+          "description": "Final score achieved by the player."
+        },
+        "wave": {
+          "type": "integer",
+          "description": "Highest wave reached in the run."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the score was recorded."
+        }
+      },
+      "required": ["alias", "score", "wave", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/scores/{scoreId}": {
+      "schema": "ScoreEntry",
+      "description": "Public global arcade leaderboard scores."
+    }
+  }
+}
