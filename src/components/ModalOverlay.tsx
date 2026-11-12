@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   isValidAlias,
   loadLastAlias,
@@ -34,12 +34,25 @@ export function ModalOverlay({
   const [alias, setAlias] = useState(() => loadLastAlias());
   const [aliasError, setAliasError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [networkFailed, setNetworkFailed] = useState(false);
+  const [skippedOnNetworkError, setSkippedOnNetworkError] = useState(false);
+  const aliasInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (hud.gameState === 'GAME_OVER') {
       setAlias(loadLastAlias());
       setAliasError('');
       setIsSaving(false);
+      setNetworkFailed(false);
+      setSkippedOnNetworkError(false);
+
+      const focusTimer = window.setTimeout(() => {
+        aliasInputRef.current?.focus();
+      }, 260);
+
+      return () => {
+        window.clearTimeout(focusTimer);
+      };
     }
   }, [hud.gameState]);
 
@@ -102,7 +115,7 @@ export function ModalOverlay({
   }
 
   const canEnterTop10 = qualifiesForLeaderboard(hud.score, leaderboard);
-  const showAliasForm = canEnterTop10 && !savedEntryId;
+  const mustSaveAlias = canEnterTop10 && !savedEntryId && !skippedOnNetworkError;
 
   const handleAliasChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const cleaned = normalizeAlias(e.target.value);
@@ -116,7 +129,8 @@ export function ModalOverlay({
     e.preventDefault();
     if (isSaving) return;
     if (!isValidAlias(alias)) {
-      setAliasError('Usa de 3 a 5 caracteres (A-Z, 0-9, - o _).');
+      setAliasError('Debes ingresar entre 3 y 5 caracteres (A-Z, 0-9, - o _).');
+      aliasInputRef.current?.focus();
       return;
     }
     setAliasError('');
@@ -124,6 +138,7 @@ export function ModalOverlay({
     try {
       await onSaveScore(alias);
     } catch (err) {
+      setNetworkFailed(true);
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('Quota exceeded')) {
         setAliasError('Se alcanzó el límite diario de la base de datos.');
@@ -133,6 +148,15 @@ export function ModalOverlay({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleGuardedAction = (action: () => void) => {
+    if (mustSaveAlias) {
+      setAliasError('Guarda tu apodo (3 a 5 caracteres) antes de continuar.');
+      aliasInputRef.current?.focus();
+      return;
+    }
+    action();
   };
 
   return (
@@ -179,26 +203,28 @@ export function ModalOverlay({
           </div>
         </div>
 
-        {/* Nickname entry form (3-5 chars) */}
-        {showAliasForm && (
+        {/* Mandatory Nickname entry form (3-5 chars) when qualifying */}
+        {mustSaveAlias && (
           <form
             onSubmit={handleSubmitAlias}
-            className="bg-[#060913] border border-cyan-400/30 rounded-xl p-3.5 mb-4 text-left"
+            className="bg-[#060913] border border-cyan-400/35 rounded-xl p-3.5 mb-4 text-left"
           >
             <label
               htmlFor="player-alias-input"
               className="block text-xs font-medium text-slate-200 mb-2"
             >
-              Ingresa tu apodo (3 a 5 caracteres)
+              Ingresa tu apodo para continuar (3 a 5 caracteres)
             </label>
             <div className="flex items-stretch gap-2">
               <input
+                ref={aliasInputRef}
                 id="player-alias-input"
                 type="text"
                 value={alias}
                 onChange={handleAliasChange}
                 minLength={3}
                 maxLength={5}
+                required
                 disabled={isSaving}
                 autoComplete="nickname"
                 autoCapitalize="characters"
@@ -219,6 +245,15 @@ export function ModalOverlay({
               <p className="mt-1.5 text-[11px] text-slate-400 font-mono-num">
                 {alias.length}/5 caracteres · A-Z, 0-9, - o _
               </p>
+            )}
+            {networkFailed && (
+              <button
+                type="button"
+                onClick={() => setSkippedOnNetworkError(true)}
+                className="mt-2 text-[11px] text-slate-400 hover:text-slate-200 underline underline-offset-2 cursor-pointer"
+              >
+                Continuar sin guardar por ahora
+              </button>
             )}
           </form>
         )}
@@ -241,16 +276,18 @@ export function ModalOverlay({
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            onClick={onRestart}
-            className="w-full min-h-[46px] px-6 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-display font-bold text-base tracking-wide transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-cyan-300"
+            onClick={() => handleGuardedAction(onRestart)}
+            disabled={mustSaveAlias}
+            className="w-full min-h-[46px] px-6 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-display font-bold text-base tracking-wide transition-colors cursor-pointer disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-cyan-300"
           >
-            Jugar de Nuevo
+            {mustSaveAlias ? 'Guarda tu apodo para jugar' : 'Jugar de Nuevo'}
           </button>
 
           <button
             type="button"
-            onClick={onReturnToTitle}
-            className="w-full min-h-[40px] px-4 py-1.5 text-slate-400 hover:text-white text-sm transition-colors cursor-pointer"
+            onClick={() => handleGuardedAction(onReturnToTitle)}
+            disabled={mustSaveAlias}
+            className="w-full min-h-[40px] px-4 py-1.5 text-slate-400 hover:text-white disabled:text-slate-600 text-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
             Menú Principal
           </button>

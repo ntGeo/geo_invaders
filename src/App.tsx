@@ -7,6 +7,7 @@ import { arcadeAudio } from './game/audio';
 import { SpaceInvadersEngine } from './game/engine';
 import {
   loadCachedLeaderboard,
+  qualifiesForLeaderboard,
   saveLeaderboardScore,
   subscribeLeaderboard,
 } from './game/leaderboard';
@@ -105,6 +106,13 @@ export default function App() {
     engineRef.current?.setAutoFire(autoFire);
   }, [autoFire]);
 
+  // Ensure savedEntryId resets whenever a new run begins
+  useEffect(() => {
+    if (hud.gameState === 'PLAYING') {
+      setSavedEntryId(null);
+    }
+  }, [hud.gameState]);
+
   const handleToggleMute = useCallback(() => {
     arcadeAudio.unlock();
     const nextMuted = arcadeAudio.toggleMute();
@@ -143,10 +151,29 @@ export default function App() {
         return;
       }
 
-      if (state === 'TITLE_MENU' || state === 'GAME_OVER') {
-        if (e.code === 'Enter' || e.code === 'Space') {
+      if (state === 'TITLE_MENU') {
+        if (!e.repeat && (e.code === 'Enter' || e.code === 'Space')) {
           e.preventDefault();
+          setSavedEntryId(null);
           engine.startNewGame();
+          return;
+        }
+      }
+
+      if (state === 'GAME_OVER') {
+        // Never allow Space (shoot key) or key-repeat to dismiss the Game Over modal
+        if (e.code === 'Space') {
+          e.preventDefault();
+          return;
+        }
+        if (e.code === 'Enter' && !e.repeat) {
+          const needsAlias =
+            qualifiesForLeaderboard(hud.score, leaderboard) && !savedEntryId;
+          if (!needsAlias) {
+            e.preventDefault();
+            setSavedEntryId(null);
+            engine.startNewGame();
+          }
           return;
         }
       }
@@ -194,7 +221,7 @@ export default function App() {
       window.removeEventListener('blur', clearInputs);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [handleToggleMute]);
+  }, [handleToggleMute, hud.score, leaderboard, savedEntryId]);
 
   // Direct touch-drag & tap steering on the canvas playfield
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
